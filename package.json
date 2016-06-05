@@ -1,0 +1,18 @@
+{
+  "title": "Stay On Top",
+  "name": "stayontop",
+  "version": "0.5",
+  "description": "Keeps a Firefox window on top",
+  "main": "index.js",
+  "author": "Kyle Ramey",
+  "engines": {
+    "firefox": ">=38.0a1"
+  },
+  "license": "MIT",
+  "keywords": [
+    "pin",
+    "top",
+    "sticky",
+    "window"
+  ]
+}
