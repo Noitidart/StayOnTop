@@ -1,18 +1,24 @@
 {
   "title": "Stay On Top",
   "name": "stayontop",
-  "version": "0.5",
+  "id": "stayontop@codefusion.ca",
+  "version": "0.5.0",
   "description": "Keeps a Firefox window on top",
   "main": "index.js",
   "author": "Kyle Ramey",
+  "homepage": "https://github.com/CodeFusion/StayOnTop",
+  "icon": {
+    "32": "resource://@stayontop/icon-32.png",
+    "48": "resource://@stayontop/icon-48.png",
+    "64": "resource://@stayontop/icon-64.png"
+  },
   "engines": {
     "firefox": ">=38.0a1"
   },
-  "license": "MIT",
-  "keywords": [
-    "pin",
-    "top",
-    "sticky",
-    "window"
-  ]
+  "mutliprocessCompatible": true,
+  "permissions": {
+    "private-browsing": true,
+    "multiprocess": true
+  },
+  "license": "MIT"
 }
