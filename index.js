@@ -7,7 +7,8 @@
  */
 
 var system = require("sdk/system");
-var {ToggleButton} = require('sdk/ui/button/toggle');
+var {Hotkey} = require('sdk/hotkeys');
+var buttons = require('sdk/ui/button/action');
 var {Cu, Ci} = require('chrome');
 Cu.import('resource://gre/modules/ctypes.jsm');
 Cu.import("resource://gre/modules/Services.jsm");
@@ -17,6 +18,8 @@ var buttonActive = false;
 var platform;
 var button;
 var ostypes = {};
+var toggleHotkey;
+var keyCombo;
 
 /**
  * Runs at installation/program start
@@ -27,10 +30,15 @@ exports.main = function(options, callbacks) {
     // Determine OS
     platform = system.platform;
 
+    if(platform == 'darwin')
+        keyCombo = '(Command + ` )';
+    else
+        keyCombo = "(CTRL+` )";
+
     // Init button
-    button = ToggleButton({
+    button = buttons.ActionButton({
         id: 'stay-on-top',
-        label: 'Stay On Top',
+        label: 'Stay On Top ' + keyCombo,
         icon: {
             '16': './pin-16.png',
             '32': './pin-32.png',
@@ -38,7 +46,14 @@ exports.main = function(options, callbacks) {
             '92': './pin-92.png',
             '128': './pin-128.png'
         },
-        onChange: handleClick
+        onClick: handleClick
+    });
+
+    toggleHotkey = Hotkey({
+        combo: "accel-`",
+        onPress: function(){
+            handleClick(null);
+        }
     });
 
     sot_initCtypes();
@@ -54,6 +69,8 @@ exports.unload = function(reason){
             lib.close();
         }
     }
+
+    toggleHotkey.destroy();
 };
 
 /**
@@ -61,13 +78,13 @@ exports.unload = function(reason){
  */
 function updateButton() {
     // Defaults
-    var icon = "pin";
-    var label = "Stay on Top";
+    var icon = 'pin';
+    var label = 'Stay on Top ' + keyCombo;
 
     // changed if button is active
     if (buttonActive) {
-        icon = "pin-active";
-        label = "Stay on Top (Active)"
+        icon = 'pin-active';
+        label = 'Stay on Top [Active] ' + keyCombo;
     }
 
     // set the button label and icon
@@ -95,7 +112,7 @@ function handleClick(state) {
         if (!sot_makeOnTop(buttonActive)) {
             // add a badge and reset boolean since we couldn't set the window state
             button.badge = "!";
-            button.label = "Stay on Top (Error printed to console)";
+            button.label = "Stay on Top [Error]";
             buttonActive = !buttonActive;
             return;
         } else {
@@ -109,7 +126,7 @@ function handleClick(state) {
         // add a badge and reset boolean since we couldn't set the window state
         console.error(e);
         button.badge = "!";
-        button.label = "Stay on Top (Error printed to console)";
+        button.label = "Stay on Top [Error]";
         buttonActive = !buttonActive;
     }
 
