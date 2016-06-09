@@ -10,10 +10,13 @@ var system = require("sdk/system");
 var {ToggleButton} = require('sdk/ui/button/toggle');
 var {Cu, Ci} = require('chrome');
 Cu.import('resource://gre/modules/ctypes.jsm');
+Cu.import("resource://gre/modules/Services.jsm");
+
 
 var buttonActive = false;
-var platform = null;
-var button = null;
+var platform;
+var button;
+var ostypes = {};
 
 /**
  * Runs at installation/program start
@@ -35,7 +38,9 @@ exports.main = function(options, callbacks) {
         },
         onChange: handleClick
     });
-}
+
+    sot_initCtypes();
+};
 
 /**
  * Handles icon and label changes
@@ -71,140 +76,140 @@ function handleClick(state) {
     // change button status
     buttonActive = !buttonActive;
 
-    // run the appropriate function for the platform
-    if (platform == 'winnt') {
-        sot_makeOnTop_win(buttonActive);
-    } else if (platform == 'linux') {
-        sot_makeOnTop_linux(buttonActive);
-    } else if (platform == 'darwin') {
-        sot_makeOnTop_mac(buttonActive);
-    }
+    sot_makeOnTop(buttonActive);
 
     // update the button's state
     updateButton();
 }
 
-/**
- * For Windows Systems
- * @param {boolean} onTop - True to place on top, False to return to standard position
- * @return {boolean} - Success
- */
-function sot_makeOnTop_win(onTop) {
-
-    // load user32 library
-    var lib = ctypes.open("user32.dll");
-
-    // get the current window
-    try {
-        var ActiveWindow = lib.declare('GetActiveWindow', ctypes.winapi_abi, ctypes.int32_t);
-    } catch (e) {
-        console.error('Could not get active window');
-        console.error(e);
-        return false;
-    }
-
-    // Get the function to set window position from user32
-    try {
-        var SetWindowPos = lib.declare("SetWindowPos",
-            ctypes.winapi_abi,
-            ctypes.bool,
-            ctypes.int32_t,
-            ctypes.int32_t,
-            ctypes.int32_t,
-            ctypes.int32_t,
-            ctypes.int32_t,
-            ctypes.int32_t,
-            ctypes.uint32_t);
-    } catch (e) {
-        console.error('Could not get SetWindowPos call');
-        console.error(e);
-        return false;
-    }
-
-    // See https://msdn.microsoft.com/en-us/library/windows/desktop/ms633545(v=vs.85).aspx
-    if (onTop) {
-        //HWND_TOPMOST
-        var hWndInsertAfter = -1
-    } else {
-        //HWND_NOTOPMOST
-        var hWndInsertAfter = -2;
-    }
-    //19 = SWP_NOMOVE, SWP_NOSIZE, SWP_NOACTIVATE
-    SetWindowPos(ActiveWindow(), hWndInsertAfter, 0, 0, 0, 0, 19);
-
-    lib.close();
+function sot_getActiveWindowHandle(){
+    var window = Services.wm.getMostRecentWindow(null);
+    if(window)
+        return sot_getNativeHandlePtrStr(window);
+    return null;
 }
 
+function sot_initCtypes(){
+    switch(platform){
+        case 'winnt':
+            ostypes.lib = {};
+            ostypes.lib.user32 = ctypes.open('user32');
 
-/**
- * For Linux Systems
- * @param {boolean} onTop - True to place on top, False to return to standard position
- * @return {boolean} - Success
- */
-function sot_makeOnTop_linux(onTop) {
+            ostypes.TYPE = {};
+            ostypes.TYPE.HWND = ctypes.void_t.ptr;
 
+            ostypes.CONST = {};
+            ostypes.CONST.HWND_TOPMOST = -1;
+            ostypes.CONST.HWND_NOTOPMOST = -2;
+            ostypes.CONST.SWP_NOMOVE__SWP_NOSIZE__SWP_NOACTIVATE = 19;
+
+            ostypes.API = {};
+            ostypes.API.SetWindowPos = ostypes.lib.user32.declare("SetWindowPos",
+                                        ctypes.winapi_abi,
+                                        ctypes.bool,
+                                        ostypes.TYPE.HWND,
+                                        ctypes.int32_t,
+                                        ctypes.int32_t,
+                                        ctypes.int32_t,
+                                        ctypes.int32_t,
+                                        ctypes.int32_t,
+                                        ctypes.uint32_t);
+            break;
+        case 'darwin':
+            ostypes.lib = {};
+            ostypes.lib.objc = ctypes.open(ctypes.libraryName('objc'));
+            ostypes.lib.coregraphics = ctypes.open('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics');
+
+            ostypes.TYPE = {};
+            ostypes.TYPE.objc_object = ctypes.StructType('objc_object').ptr;
+            ostypes.TYPE.SEL = ctypes.StructType('objc_selector').ptr;
+            ostypes.TYPE.CGWindowLevel = ctypes.int32_t;
+            ostypes.TYPE.CGWindowLevelKey = ctypes.int32_t;
+            ostypes.TYPE.NSWindow = ctypes.StructType('NSWindow').ptr;
+            
+            ostypes.CONST = {};
+
+            // set correct number size based on architecture
+            if (ctypes.voidptr_t.size == 4 /* 32-bit */) {
+                ostypes.TYPE.NSInteger = ctypes.int;
+            } else if (ctypes.voidptr_t.size == 8 /* 64-bit */) {
+                ostypes.TYPE.NSInteger = ctypes.long;
+            }
+
+            ostypes.API = {};
+            ostypes.API.CGWindowLevelForKey = ostypes.lib.coregraphics.declare('CGWindowLevelForKey',
+                                                ctypes.default_abi,
+                                                ostypes.TYPE.CGWindowLevel,
+                                                ostypes.TYPE.CGWindowLevelKey);
+            ostypes.API.objc_getClass = ostypes.lib.objc.declare('objc_getClass',
+                                            ctypes.default_abi,
+                                            ostypes.TYPE.objc_object,
+                                            ctypes.char.ptr);
+            ostypes.API.sel_registerName = ostypes.lib.objc.declare('sel_registerName',
+                                            ctypes.default_abi,
+                                            ostypes.TYPE.SEL,
+                                            ctypes.char.ptr);
+            ostypes.API.objc_msgSend = ostypes.lib.objc.declare('objc_msgSend',
+                                            ctypes.default_abi,
+                                            ostypes.TYPE.objc_object,
+                                            ostypes.TYPE.objc_object,
+                                            ostypes.TYPE.SEL,
+                                            '...');
+            break;
+
+        default:
+            // to be added
+            break;
+    }
 }
 
+function sot_makeOnTop(onTop){
+    var windowHandle = sot_getActiveWindowHandle();
 
-/**
- * For OSX Systems
- * @param {boolean} onTop - True to place on top, False to return to standard position
- * @return {boolean} - Success
- */
-function sot_makeOnTop_mac(onTop) {
-
-    // import objective-c library
-    let lib = ctypes.open(ctypes.libraryName('objc'));
-    let objc = ctypes.open(ctypes.libraryName('objc'));
-
-    // set correct number size based on architecture
-    if (ctypes.voidptr_t.size == 4 /* 32-bit */) {
-        var is64bit = false;
-    } else if (ctypes.voidptr_t.size == 8 /* 64-bit */) {
-        var is64bit = true;
-    } else {
-        console.error('Invalid architecture');
+    if(!windowHandle)
         return false;
+
+    switch(platform){
+        case 'winnt':
+
+            var window_hwnd = ostypes.TYPE.HWND(ctypes.UINT64(windowHandle));
+            if(onTop){
+                SetWindowPos(window_hwnd, ostypes.CONST.HWND_TOPMOST, 0, 0, 0, 0, ostypes.CONST.SWP_NOMOVE__SWP_NOSIZE__SWP_NOACTIVATE);
+            }else{
+                SetWindowPos(window_hwnd, ostypes.CONST.HWND_NOTOPMOST, 0, 0, 0, 0, ostypes.CONST.SWP_NOMOVE__SWP_NOSIZE__SWP_NOACTIVATE);
+            }
+            break;
+        case 'darwin':
+
+            var window_nswindow = ostypes.TYPE.objc_object(ctypes.UInt64(windowHandle));
+            var setLevel = ostypes.API.sel_registerName('setLevel:');
+
+            ostypes.CONST.kCGFloatingWindowLevelKey = 5;
+            ostypes.CONST.kCGNormalWindowLevelKey = 4;
+
+            ostypes.CONST.NSFloatingWindowLevel = ostypes.TYPE.objc_object(ostypes.API.CGWindowLevelForKey(ostypes.CONST.kCGFloatingWindowLevelKey));
+            ostypes.CONST.NSNormalWindowLevel = ostypes.TYPE.objc_object(ostypes.API.CGWindowLevelForKey(ostypes.CONST.kCGNormalWindowLevelKey));
+
+            // set window level
+            if(onTop) {
+                ostypes.API.objc_msgSend(window_nswindow, setLevel, ostypes.CONST.NSFloatingWindowLevel);
+            }else{
+                ostypes.API.objc_msgSend(window_nswindow, setLevel, ostypes.CONST.NSNormalWindowLevel);
+            }
+            break;
+        default:
+            //to be added
+            break;
     }
+}
 
-    // set up functions and objects
-    let id = ctypes.StructType('objc_object').ptr;
-    let SEL = ctypes.StructType('objc_selector').ptr;
-    let objc_getClass = objc.declare('objc_getClass', ctypes.default_abi, id, ctypes.char.ptr);
-    let sel_registerName = objc.declare("sel_registerName", ctypes.default_abi, SEL, ctypes.char.ptr);
-    let objc_msgSend = objc.declare("objc_msgSend", ctypes.default_abi, id, id, SEL, "...");
+function sot_getNativeHandlePtrStr(aDOMWindow){
+    var aDOMBaseWindow = aDOMWindow.QueryInterface(Ci.nsIInterfaceRequestor)
+        .getInterface(Ci.nsIWebNavigation)
+        .QueryInterface(Ci.nsIDocShellTreeItem)
+        .treeOwner
+        .QueryInterface(Ci.nsIInterfaceRequestor)
+        .getInterface(Ci.nsIBaseWindow);
 
-    var CGWindowLevel = ctypes.int32_t;
-    var CGWindowLevelKey = ctypes.int32_t;
-    var NSInteger = is64bit ? ctypes.long : ctypes.int;
-    var CGWindowLevelForKey = ctypes.open('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics')
-        .declare('CGWindowLevelForKey', ctypes.default_abi, CGWindowLevel, CGWindowLevelKey);
-
-    // Window levels
-    var kCGFloatingWindowLevelKey = 5;
-    var NSFloatingWindowLevel = CGWindowLevelForKey(kCGFloatingWindowLevelKey);
-
-    var kCGNormalWindowLevelKey = 4;
-    var NSNormalWindowLevel = CGWindowLevelForKey(kCGNormalWindowLevelKey);
-
-    var NSApplication = objc_getClass('NSApplication');
-    var sharedApplication = sel_registerName('sharedApplication');
-    var keyWindow = sel_registerName('keyWindow');
-
-    var app = objc_msgSend(NSApplication, sharedApplication);
-    var window = objc_msgSend(app, keyWindow);
-
-    if (!window.isNull()) {
-        // https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ApplicationKit/Classes/NSWindow_Class/#//apple_ref/occ/instp/NSWindow/level
-        var setLevel = sel_registerName('setLevel:');
-
-        if(onTop) {
-            objc_msgSend(window, setLevel, NSInteger(NSFloatingWindowLevel));
-        }else{
-            objc_msgSend(window, setLevel, NSInteger(NSNormalWindowLevel));
-        }
-        return true;
-    }
-
-    return false;
+    return aDOMBaseWindow.nativeHandle;
 }
