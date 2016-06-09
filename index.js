@@ -26,14 +26,14 @@ var keyCombo;
  * @param options
  * @param callbacks
  */
-exports.main = function(options, callbacks) {
+exports.main = function (options, callbacks) {
     // Determine OS
     platform = system.platform;
 
-    if(platform == 'darwin')
+    if (platform == 'darwin')
         keyCombo = '(Control + ` )';
     else
-        keyCombo = "(CTRL+` )";
+        keyCombo = '(CTRL+` )';
 
     // Init button
     button = buttons.ActionButton({
@@ -50,8 +50,8 @@ exports.main = function(options, callbacks) {
     });
 
     toggleHotkey = Hotkey({
-        combo: "control-`",
-        onPress: function(){
+        combo: 'control-`',
+        onPress: function () {
             handleClick(null);
         }
     });
@@ -63,7 +63,7 @@ exports.main = function(options, callbacks) {
  * Runs at uninstallation/program end
  * @param reason
  */
-exports.unload = function(reason){
+exports.unload = function (reason) {
     if (ostypes) {
         for (var lib of ostypes.lib) {
             lib.close();
@@ -111,8 +111,8 @@ function handleClick(state) {
     try {
         if (!sot_makeOnTop(buttonActive)) {
             // add a badge and reset boolean since we couldn't set the window state
-            button.badge = "!";
-            button.label = "Stay on Top [Error]";
+            button.badge = '!';
+            button.label = 'Stay on Top [Error]';
             buttonActive = !buttonActive;
             return;
         } else {
@@ -122,11 +122,11 @@ function handleClick(state) {
         // update the button's state
         updateButton();
 
-    }catch (e){
+    } catch (e) {
         // add a badge and reset boolean since we couldn't set the window state
         console.error(e);
-        button.badge = "!";
-        button.label = "Stay on Top [Error]";
+        button.badge = '!';
+        button.label = 'Stay on Top [Error]';
         buttonActive = !buttonActive;
     }
 
@@ -137,9 +137,9 @@ function handleClick(state) {
  * Cross-platform retreival of active window
  * @returns pointer to the active window handle or null
  */
-function sot_getActiveWindowHandle(){
+function sot_getActiveWindowHandle() {
     var window = Services.wm.getMostRecentWindow(null);
-    if(window)
+    if (window)
         return sot_getNativeHandlePtrStr(window);
     return null;
 }
@@ -147,8 +147,8 @@ function sot_getActiveWindowHandle(){
 /**
  * Initialize all the libraries, types, constants, and functions used later
  */
-function sot_initCtypes(){
-    switch(platform){
+function sot_initCtypes() {
+    switch (platform) {
         case 'winnt': // Windows
             ostypes.lib = {};
             ostypes.lib.user32 = ctypes.open('user32');
@@ -162,16 +162,16 @@ function sot_initCtypes(){
             ostypes.CONST.SWP_NOMOVE__SWP_NOSIZE__SWP_NOACTIVATE = 19;
 
             ostypes.API = {};
-            ostypes.API.SetWindowPos = ostypes.lib.user32.declare("SetWindowPos",
-                                        ctypes.winapi_abi,
-                                        ctypes.bool,
-                                        ostypes.TYPE.HWND,
-                                        ctypes.int32_t,
-                                        ctypes.int32_t,
-                                        ctypes.int32_t,
-                                        ctypes.int32_t,
-                                        ctypes.int32_t,
-                                        ctypes.uint32_t);
+            ostypes.API.SetWindowPos = ostypes.lib.user32.declare('SetWindowPos',
+                ctypes.winapi_abi,
+                ctypes.bool,
+                ostypes.TYPE.HWND,
+                ctypes.int32_t,
+                ctypes.int32_t,
+                ctypes.int32_t,
+                ctypes.int32_t,
+                ctypes.int32_t,
+                ctypes.uint32_t);
             break;
         case 'darwin': // Mac OSX
             ostypes.lib = {};
@@ -184,7 +184,7 @@ function sot_initCtypes(){
             ostypes.TYPE.CGWindowLevel = ctypes.int32_t;
             ostypes.TYPE.CGWindowLevelKey = ctypes.int32_t;
             ostypes.TYPE.NSWindow = ctypes.StructType('NSWindow').ptr;
-            
+
             ostypes.CONST = {};
 
             // set correct number size based on architecture
@@ -196,23 +196,23 @@ function sot_initCtypes(){
 
             ostypes.API = {};
             ostypes.API.CGWindowLevelForKey = ostypes.lib.coregraphics.declare('CGWindowLevelForKey',
-                                                ctypes.default_abi,
-                                                ostypes.TYPE.CGWindowLevel,
-                                                ostypes.TYPE.CGWindowLevelKey);
+                ctypes.default_abi,
+                ostypes.TYPE.CGWindowLevel,
+                ostypes.TYPE.CGWindowLevelKey);
             ostypes.API.objc_getClass = ostypes.lib.objc.declare('objc_getClass',
-                                            ctypes.default_abi,
-                                            ostypes.TYPE.objc_object,
-                                            ctypes.char.ptr);
+                ctypes.default_abi,
+                ostypes.TYPE.objc_object,
+                ctypes.char.ptr);
             ostypes.API.sel_registerName = ostypes.lib.objc.declare('sel_registerName',
-                                            ctypes.default_abi,
-                                            ostypes.TYPE.SEL,
-                                            ctypes.char.ptr);
+                ctypes.default_abi,
+                ostypes.TYPE.SEL,
+                ctypes.char.ptr);
             ostypes.API.objc_msgSend = ostypes.lib.objc.declare('objc_msgSend',
-                                            ctypes.default_abi,
-                                            ostypes.TYPE.objc_object,
-                                            ostypes.TYPE.objc_object,
-                                            ostypes.TYPE.SEL,
-                                            '...');
+                ctypes.default_abi,
+                ostypes.TYPE.objc_object,
+                ostypes.TYPE.objc_object,
+                ostypes.TYPE.SEL,
+                '...');
             break;
 
         default: // *nix
@@ -245,7 +245,7 @@ function sot_initCtypes(){
             ostypes.API.gdk_window_get_user_data = ostypes.lib.gdk.declare('gdk_window_get_user_data', ctypes.default_abi, ctypes.void_t, ostypes.TYPE.GdkWindow.ptr, ostypes.TYPE.gpointer);
 
             ostypes.HELPER = {};
-            ostypes.HELPER.getGtkWindowFromGdkWindow = function(aGdkWindowPtr) {
+            ostypes.HELPER.getGtkWindowFromGdkWindow = function (aGdkWindowPtr) {
                 var gptr = ostypes.TYPE.gpointer();
                 ostypes.API.gdk_window_get_user_data(aGdkWindowPtr, gptr.address());
                 return ctypes.cast(gptr, ostypes.TYPE.GtkWindow.ptr);
@@ -258,21 +258,21 @@ function sot_initCtypes(){
  * @param onTop - whether the window should be pinned to top
  * @returns {boolean}
  */
-function sot_makeOnTop(onTop){
+function sot_makeOnTop(onTop) {
     var windowHandle = sot_getActiveWindowHandle();
 
-    if(!windowHandle) {
+    if (!windowHandle) {
         console.error('Unable to acquire windowHandle');
         return false;
     }
 
-    switch(platform){
+    switch (platform) {
         case 'winnt':
 
             var window_hwnd = ostypes.TYPE.HWND(ctypes.UInt64(windowHandle));
-            if(onTop){
+            if (onTop) {
                 ostypes.API.SetWindowPos(window_hwnd, ostypes.CONST.HWND_TOPMOST, 0, 0, 0, 0, ostypes.CONST.SWP_NOMOVE__SWP_NOSIZE__SWP_NOACTIVATE);
-            }else{
+            } else {
                 ostypes.API.SetWindowPos(window_hwnd, ostypes.CONST.HWND_NOTOPMOST, 0, 0, 0, 0, ostypes.CONST.SWP_NOMOVE__SWP_NOSIZE__SWP_NOACTIVATE);
             }
             break;
@@ -288,9 +288,9 @@ function sot_makeOnTop(onTop){
             ostypes.CONST.NSNormalWindowLevel = ostypes.TYPE.objc_object(ostypes.API.CGWindowLevelForKey(ostypes.CONST.kCGNormalWindowLevelKey));
 
             // set window level
-            if(onTop) {
+            if (onTop) {
                 ostypes.API.objc_msgSend(window_nswindow, setLevel, ostypes.CONST.NSFloatingWindowLevel);
-            }else{
+            } else {
                 ostypes.API.objc_msgSend(window_nswindow, setLevel, ostypes.CONST.NSNormalWindowLevel);
             }
             break;
@@ -320,7 +320,7 @@ function sot_makeOnTop(onTop){
  * @param aDOMWindow
  * @returns {*}
  */
-function sot_getNativeHandlePtrStr(aDOMWindow){
+function sot_getNativeHandlePtrStr(aDOMWindow) {
     var aDOMBaseWindow = aDOMWindow.QueryInterface(Ci.nsIInterfaceRequestor)
         .getInterface(Ci.nsIWebNavigation)
         .QueryInterface(Ci.nsIDocShellTreeItem)
