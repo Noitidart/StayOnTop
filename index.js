@@ -31,7 +31,7 @@ exports.main = function(options, callbacks) {
     platform = system.platform;
 
     if(platform == 'darwin')
-        keyCombo = '(Command + ` )';
+        keyCombo = '(Control + ` )';
     else
         keyCombo = "(CTRL+` )";
 
@@ -50,7 +50,7 @@ exports.main = function(options, callbacks) {
     });
 
     toggleHotkey = Hotkey({
-        combo: "accel-`",
+        combo: "control-`",
         onPress: function(){
             handleClick(null);
         }
