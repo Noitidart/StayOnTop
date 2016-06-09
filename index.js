@@ -172,11 +172,11 @@ function sot_makeOnTop(onTop){
     switch(platform){
         case 'winnt':
 
-            var window_hwnd = ostypes.TYPE.HWND(ctypes.UINT64(windowHandle));
+            var window_hwnd = ostypes.TYPE.HWND(ctypes.UInt64(windowHandle));
             if(onTop){
-                SetWindowPos(window_hwnd, ostypes.CONST.HWND_TOPMOST, 0, 0, 0, 0, ostypes.CONST.SWP_NOMOVE__SWP_NOSIZE__SWP_NOACTIVATE);
+                ostypes.API.SetWindowPos(window_hwnd, ostypes.CONST.HWND_TOPMOST, 0, 0, 0, 0, ostypes.CONST.SWP_NOMOVE__SWP_NOSIZE__SWP_NOACTIVATE);
             }else{
-                SetWindowPos(window_hwnd, ostypes.CONST.HWND_NOTOPMOST, 0, 0, 0, 0, ostypes.CONST.SWP_NOMOVE__SWP_NOSIZE__SWP_NOACTIVATE);
+                ostypes.API.SetWindowPos(window_hwnd, ostypes.CONST.HWND_NOTOPMOST, 0, 0, 0, 0, ostypes.CONST.SWP_NOMOVE__SWP_NOSIZE__SWP_NOACTIVATE);
             }
             break;
         case 'darwin':
