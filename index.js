@@ -20,6 +20,8 @@ var ostypes = {};
 
 /**
  * Runs at installation/program start
+ * @param options
+ * @param callbacks
  */
 exports.main = function(options, callbacks) {
     // Determine OS
@@ -40,6 +42,18 @@ exports.main = function(options, callbacks) {
     });
 
     sot_initCtypes();
+};
+
+/**
+ * Runs at uninstallation/program end
+ * @param reason
+ */
+exports.unload = function(reason){
+    if (ostypes) {
+        for (var lib of ostypes.lib) {
+            lib.close();
+        }
+    }
 };
 
 /**
@@ -71,17 +85,41 @@ function updateButton() {
 
 /**
  * runs when button is pressed
+ * @param state
  */
 function handleClick(state) {
     // change button status
     buttonActive = !buttonActive;
 
-    sot_makeOnTop(buttonActive);
+    try {
+        if (!sot_makeOnTop(buttonActive)) {
+            // add a badge and reset boolean since we couldn't set the window state
+            button.badge = "!";
+            button.label = "Stay on Top (Error printed to console)";
+            buttonActive = !buttonActive;
+            return;
+        } else {
+            button.badge = null;
+        }
 
-    // update the button's state
-    updateButton();
+        // update the button's state
+        updateButton();
+
+    }catch (e){
+        // add a badge and reset boolean since we couldn't set the window state
+        console.error(e);
+        button.badge = "!";
+        button.label = "Stay on Top (Error printed to console)";
+        buttonActive = !buttonActive;
+    }
+
+
 }
 
+/**
+ * Cross-platform retreival of active window
+ * @returns pointer to the active window handle or null
+ */
 function sot_getActiveWindowHandle(){
     var window = Services.wm.getMostRecentWindow(null);
     if(window)
@@ -89,9 +127,12 @@ function sot_getActiveWindowHandle(){
     return null;
 }
 
+/**
+ * Initialize all the libraries, types, constants, and functions used later
+ */
 function sot_initCtypes(){
     switch(platform){
-        case 'winnt':
+        case 'winnt': // Windows
             ostypes.lib = {};
             ostypes.lib.user32 = ctypes.open('user32');
 
@@ -115,7 +156,7 @@ function sot_initCtypes(){
                                         ctypes.int32_t,
                                         ctypes.uint32_t);
             break;
-        case 'darwin':
+        case 'darwin': // Mac OSX
             ostypes.lib = {};
             ostypes.lib.objc = ctypes.open(ctypes.libraryName('objc'));
             ostypes.lib.coregraphics = ctypes.open('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics');
@@ -157,17 +198,56 @@ function sot_initCtypes(){
                                             '...');
             break;
 
-        default:
-            // to be added
-            break;
+        default: // *nix
+
+            var version = Services.appinfo.version;
+            var gdk2 = 'libgdk-x11-2.0.so.0';
+            var gdk3 = 'libgdk-3.so.0';
+            var gtk2 = 'libgtk-x11-2.0.so.0';
+            var gtk3 = 'libgtk-3.so.0';
+
+            ostypes.lib = {};
+            ostypes.lib.gtk = parseInt(version) <= 45 ? ctypes.open(gtk2) : ctypes.open(gtk3);
+            ostypes.lib.gdk = parseInt(version) <= 45 ? ctypes.open(gdk2) : ctypes.open(gdk3);
+
+            ostypes.TYPE = {};
+            ostypes.TYPE.GdkWindow = ctypes.StructType('GdkWindow');
+            ostypes.TYPE.GtkWindow = ctypes.StructType('GtkWindow');
+            ostypes.TYPE.gint = ctypes.int;
+            ostypes.TYPE.gpointer = ctypes.voidptr_t;
+
+            // level 2 types - depend on level 1 types
+            ostypes.TYPE.gboolean = ostypes.TYPE.gint;
+
+            ostypes.CONST = {};
+
+            ostypes.API = {};
+            // https://developer.gnome.org/gtk3/stable/GtkWindow.html#gtk-window-set-keep-above
+            ostypes.API.gtk_window_set_keep_above = ostypes.lib.gtk.declare('gtk_window_set_keep_above', ctypes.default_abi, ctypes.void_t, ostypes.TYPE.GtkWindow.ptr, ostypes.TYPE.gboolean);
+            // https://developer.gnome.org/gdk3/stable/gdk3-Windows.html#gdk-window-get-user-data
+            ostypes.API.gdk_window_get_user_data = ostypes.lib.gdk.declare('gdk_window_get_user_data', ctypes.default_abi, ctypes.void_t, ostypes.TYPE.GdkWindow.ptr, ostypes.TYPE.gpointer);
+
+            ostypes.HELPER = {};
+            ostypes.HELPER.getGtkWindowFromGdkWindow = function(aGdkWindowPtr) {
+                var gptr = ostypes.TYPE.gpointer();
+                ostypes.API.gdk_window_get_user_data(aGdkWindowPtr, gptr.address());
+                return ctypes.cast(gptr, ostypes.TYPE.GtkWindow.ptr);
+            };
     }
 }
 
+/**
+ * Set the window position
+ * @param onTop - whether the window should be pinned to top
+ * @returns {boolean}
+ */
 function sot_makeOnTop(onTop){
     var windowHandle = sot_getActiveWindowHandle();
 
-    if(!windowHandle)
+    if(!windowHandle) {
+        console.error('Unable to acquire windowHandle');
         return false;
+    }
 
     switch(platform){
         case 'winnt':
@@ -198,11 +278,31 @@ function sot_makeOnTop(onTop){
             }
             break;
         default:
-            //to be added
-            break;
+            // assume gtk
+
+            var win_as_gdkwin = ostypes.TYPE.GdkWindow.ptr(ctypes.UInt64(windowHandle));
+
+            var win_as_gtkwin = ostypes.HELPER.getGtkWindowFromGdkWindow(win_as_gdkwin);
+
+            var gbool_true = 1;
+            var gbool_false = 0;
+
+            if (onTop) {
+                var newLevel = gbool_true;
+            } else {
+                var newLevel = gbool_false;
+            }
+
+            ostypes.API.gtk_window_set_keep_above(win_as_gtkwin, newLevel); // returns void so it will be undefined, no use testing it
     }
+    return true;
 }
 
+/**
+ * Get handle for the window (cross-platform)
+ * @param aDOMWindow
+ * @returns {*}
+ */
 function sot_getNativeHandlePtrStr(aDOMWindow){
     var aDOMBaseWindow = aDOMWindow.QueryInterface(Ci.nsIInterfaceRequestor)
         .getInterface(Ci.nsIWebNavigation)
