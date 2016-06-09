@@ -2,7 +2,7 @@
   "title": "Stay On Top",
   "name": "stayontop",
   "id": "stayontop@codefusion.ca",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "description": "Keeps a Firefox window on top",
   "main": "index.js",
   "author": "Kyle Ramey",
