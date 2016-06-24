@@ -62,14 +62,15 @@ exports.main = function (options, callbacks) {
     sot_initCtypes();
 };
 
+var { viewFor } = require("sdk/view/core");
 function initHotkey() {
     var windows = require("sdk/windows");
     for (let window of windows.browserWindows) {
-        window.addEventListener('keyup', hotkeyPress, false);
+        viewFor(window).addEventListener('keyup', hotkeyPress, false);
     }
     
     windows.on('open', function(window) {
-        window.addEventListener('keyup', hotkeyPress, false);
+        viewFor(window).addEventListener('keyup', hotkeyPress, false);
     });
 }
 
@@ -82,7 +83,7 @@ function hotkeyPress = function(e) {
 function uninitHotkey() {
     var windows = require("sdk/windows");
     for (let window of windows.browserWindows) {
-        window.removeEventListener('keyup', hotkeyPress, false);
+        viewFor(window).removeEventListener('keyup', hotkeyPress, false);
     }
 }
 
