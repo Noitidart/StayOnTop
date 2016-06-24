@@ -21,6 +21,8 @@ var ostypes = {};
 var toggleHotkey;
 var keyCombo;
 
+var key '`';
+
 /**
  * Runs at installation/program start
  * @param options
@@ -31,9 +33,9 @@ exports.main = function (options, callbacks) {
     platform = system.platform;
 
     if (platform == 'darwin')
-        keyCombo = '(Control + ` )';
+        keyCombo = '(Control + ' + key + ' )';
     else
-        keyCombo = '(CTRL+` )';
+        keyCombo = '(Ctrl + ' + key + ' )';
 
     // Init button
     button = buttons.ActionButton({
@@ -55,9 +57,34 @@ exports.main = function (options, callbacks) {
             handleClick(null);
         }
     });
+    initHotkey();
 
     sot_initCtypes();
 };
+
+function initHotkey() {
+    var windows = require("sdk/windows");
+    for (let window of windows.browserWindows) {
+        window.addEventListener('keyup', hotkeyPress, false);
+    }
+    
+    windows.on('open', function(window) {
+        window.addEventListener('keyup', hotkeyPress, false);
+    });
+}
+
+function hotkeyPress = function(e) {
+    if (e.key.toLowerCase() == key) {
+        handleClick(null);
+    }
+}
+
+function uninitHotkey() {
+    var windows = require("sdk/windows");
+    for (let window of windows.browserWindows) {
+        window.removeEventListener('keyup', hotkeyPress, false);
+    }
+}
 
 /**
  * Runs at uninstallation/program end
@@ -70,7 +97,7 @@ exports.unload = function (reason) {
         }
     }
 
-    toggleHotkey.destroy();
+    uninitHotkey();
 };
 
 /**
