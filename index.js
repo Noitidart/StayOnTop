@@ -1,7 +1,7 @@
 /*
  * Stay On Top
  * Sets a window to the topmost position
- * 
+ *
  * License: MIT
  * Author: Kyle Ramey
  */
@@ -51,39 +51,73 @@ exports.main = function (options, callbacks) {
         onClick: handleClick
     });
 
-    toggleHotkey = Hotkey({
-        combo: 'control-`',
-        onPress: function () {
-            handleClick(null);
-        }
-    });
-    initHotkey();
+    windowListener.register();
 
     sot_initCtypes();
 };
 
-var { viewFor } = require("sdk/view/core");
-function initHotkey() {
-    var windows = require("sdk/windows");
-    for (let window of windows.browserWindows) {
-        viewFor(window).addEventListener('keyup', hotkeyPress, false);
-    }
-    
-    windows.on('open', function(window) {
-        viewFor(window).addEventListener('keyup', hotkeyPress, false);
-    });
-}
+var windowListener = {
+	//DO NOT EDIT HERE
+	onOpenWindow: function (aXULWindow) {
+		// Wait for the window to finish loading
+		var aDOMWindow = aXULWindow.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindow);
+		aDOMWindow.addEventListener('load', function () {
+			aDOMWindow.removeEventListener('load', arguments.callee, false);
+			windowListener.loadIntoWindow(aDOMWindow);
+		}, false);
+	},
+	onCloseWindow: function (aXULWindow) {},
+	onWindowTitleChange: function (aXULWindow, aNewTitle) {},
+	register: function () {
+
+		// Load into any existing windows
+		let DOMWindows = Services.wm.getEnumerator(null);
+		while (DOMWindows.hasMoreElements()) {
+			let aDOMWindow = DOMWindows.getNext();
+			if (aDOMWindow.document.readyState == 'complete') { //on startup `aDOMWindow.document.readyState` is `uninitialized`
+				windowListener.loadIntoWindow(aDOMWindow);
+			} else {
+				aDOMWindow.addEventListener('load', function () {
+					aDOMWindow.removeEventListener('load', arguments.callee, false);
+					windowListener.loadIntoWindow(aDOMWindow);
+				}, false);
+			}
+		}
+		// Listen to new windows
+		Services.wm.addListener(windowListener);
+	},
+	unregister: function () {
+		// Unload from any existing windows
+		let DOMWindows = Services.wm.getEnumerator(null);
+		while (DOMWindows.hasMoreElements()) {
+			let aDOMWindow = DOMWindows.getNext();
+			windowListener.unloadFromWindow(aDOMWindow);
+		}
+		/*
+		for (var u in unloaders) {
+			unloaders[u]();
+		}
+		*/
+		//Stop listening so future added windows dont get this attached
+		Services.wm.removeListener(windowListener);
+	},
+	//END - DO NOT EDIT HERE
+	loadIntoWindow: function (aDOMWindow) {
+		if (!aDOMWindow) { return }
+
+            aDOMWindow.addEventListener('keyup', hotkeyPress, false);
+	},
+	unloadFromWindow: function (aDOMWindow) {
+		if (!aDOMWindow) { return }
+
+        aDOMWindow.removeEventListener('keyup', hotkeyPress, false);
+	}
+};
 
 function hotkeyPress(e) {
+    console.error('in keypress, e.key:', e.key);
     if (e.key.toLowerCase() == key) {
         handleClick(null);
-    }
-}
-
-function uninitHotkey() {
-    var windows = require("sdk/windows");
-    for (let window of windows.browserWindows) {
-        viewFor(window).removeEventListener('keyup', hotkeyPress, false);
     }
 }
 
@@ -98,7 +132,7 @@ exports.unload = function (reason) {
         }
     }
 
-    uninitHotkey();
+    windowListener.unregister();
 };
 
 /**
