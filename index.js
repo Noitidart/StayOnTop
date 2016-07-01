@@ -74,7 +74,7 @@ function initHotkey() {
     });
 }
 
-function hotkeyPress = function(e) {
+function hotkeyPress(e) {
     if (e.key.toLowerCase() == key) {
         handleClick(null);
     }
