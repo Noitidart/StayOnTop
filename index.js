@@ -21,7 +21,7 @@ var ostypes = {};
 var toggleHotkey;
 var keyCombo;
 
-var key '`';
+var key = '`';
 
 /**
  * Runs at installation/program start
