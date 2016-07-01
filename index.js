@@ -32,11 +32,6 @@ exports.main = function (options, callbacks) {
     // Determine OS
     platform = system.platform;
 
-    if (platform == 'darwin')
-        keyCombo = '(Control + ' + key + ' )';
-    else
-        keyCombo = '(Ctrl + ' + key + ' )';
-
     // Init button
     button = buttons.ActionButton({
         id: 'stay-on-top',
@@ -117,7 +112,12 @@ var windowListener = {
 function hotkeyPress(e) {
     console.error('in keypress, e.key:', e.key);
     if (e.key.toLowerCase() == key) {
-        handleClick(null);
+        if (platform == 'darwin' && e.metaKey) {
+        	handleClick(null);
+        } else if (e.ctrlKey) {
+        	handleClick(null);
+        }
+        
     }
 }
 
